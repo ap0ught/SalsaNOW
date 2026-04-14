@@ -30,7 +30,7 @@
 
   <!-- Alternative: Use Microsoft.Windows.Compatibility package for cross-platform builds -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Windows.Compatibility" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Windows.Compatibility" Version="9.0.14" />
   </ItemGroup>
 
 </Project>

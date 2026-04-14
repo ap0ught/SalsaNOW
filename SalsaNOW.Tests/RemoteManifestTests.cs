@@ -32,13 +32,23 @@ namespace SalsaNOW.Tests
         [TestMethod]
         public void Url_Throws_WhenInitializeNotCalled()
         {
-            Assert.ThrowsException<InvalidOperationException>(() => RemoteManifest.Url("jsons/x.json"));
+            try
+            {
+                RemoteManifest.Url("jsons/x.json");
+                Assert.Fail("Expected InvalidOperationException");
+            }
+            catch (InvalidOperationException) { }
         }
 
         [TestMethod]
         public void Initialize_Throws_When_NoEnv_And_NoIni()
         {
-            Assert.ThrowsException<InvalidOperationException>(() => RemoteManifest.Initialize());
+            try
+            {
+                RemoteManifest.Initialize();
+                Assert.Fail("Expected InvalidOperationException");
+            }
+            catch (InvalidOperationException) { }
         }
 
         [TestMethod]
@@ -79,8 +89,19 @@ namespace SalsaNOW.Tests
             Environment.SetEnvironmentVariable(EnvName, "https://x.test");
             RemoteManifest.Initialize();
 
-            Assert.ThrowsException<ArgumentException>(() => RemoteManifest.Url(""));
-            Assert.ThrowsException<ArgumentException>(() => RemoteManifest.Url(null));
+            try
+            {
+                RemoteManifest.Url("");
+                Assert.Fail("Expected ArgumentException for empty");
+            }
+            catch (ArgumentException) { }
+
+            try
+            {
+                RemoteManifest.Url(null);
+                Assert.Fail("Expected ArgumentException for null");
+            }
+            catch (ArgumentException) { }
         }
     }
 }
