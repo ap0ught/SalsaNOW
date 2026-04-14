@@ -362,6 +362,10 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# local EXEs
+# Local tooling & editors
 .tools/
-/.idea/
+.idea/
+.claude/
+
+# Optional local-only assistant config (untracked by choice)
+CLAUDE.md
