@@ -4,7 +4,7 @@ A GeForce NOW environment customization tool built with Flutter and the Arcane U
 
 ## Overview
 
-PsyNow drives the same GeForce NOW setup as **SalsaNOW**, using the **same remote manifest** as the C# app: set `SALSANOW_MANIFEST_BASE` or place `SalsaNOW.manifest.ini` (with `ManifestBaseUrl=...`) next to the Flutter executable. The install root comes from **`jsons/directory.json`**; apps, desktop shells, silent tools, Steam proxy + USG, and save junctions follow the same `jsons/*` contracts as `SalsaNOW/Program.cs`. If no manifest is configured, PsyNow falls back to `C:\PsyNow` and logs a warning (USG and JSON-driven installs require the host).
+PsyNow drives the same GeForce NOW setup as **SalsaNOW**, using the **same remote manifest** as the C# app: set `SALSANOW_MANIFEST_BASE` or place `SalsaNOW.manifest.ini` (with `ManifestBaseUrl=...`) next to the Flutter executable. The install root comes from `**jsons/directory.json`**; apps, desktop shells, silent tools, Steam proxy + USG, and save junctions follow the same `jsons/*` contracts as `SalsaNOW/Program.cs`. If no manifest is configured, PsyNow falls back to `C:\PsyNow` and logs a warning (USG and JSON-driven installs require the host).
 
 ## Features
 

@@ -4,10 +4,12 @@ Both projects target the same outcome on GeForce NOW: portable tools on disk, NV
 
 ## Quick choice
 
-| Prefer… | Use |
-|--------|-----|
-| The build pipeline, updater, and docs site you already ship | **SalsaNOW** (`SalsaNOW/`) |
-| A single codebase that can target **multiple OSes** from Flutter, or you already maintain Dart | **psy_now** (`psy_now/`) |
+
+| Prefer…                                                                                        | Use                        |
+| ---------------------------------------------------------------------------------------------- | -------------------------- |
+| The build pipeline, updater, and docs site you already ship                                    | **SalsaNOW** (`SalsaNOW/`) |
+| A single codebase that can target **multiple OSes** from Flutter, or you already maintain Dart | **psy_now** (`psy_now/`)   |
+
 
 ## Advantages of **SalsaNOW** (C# / .NET)
 
@@ -19,7 +21,7 @@ Both projects target the same outcome on GeForce NOW: portable tools on disk, NV
 
 ## psy_now parity with `SalsaNOW/` (manifest-driven)
 
-The Flutter app now follows the same **remote manifest** rules as `RemoteManifest.cs`: environment variable `SALSANOW_MANIFEST_BASE` or `SalsaNOW.manifest.ini` beside the executable. It resolves the install root from **`jsons/directory.json`**, seeds **`SalsaNOWConfig.ini`** from the manifest when missing, installs apps from **`jsons/apps.json`**, shells from **`jsons/desktop.json`**, silent payloads from **`jsons/silentapps.json`**, runs the **Steam proxy / USG** sequence aligned with `SteamManager.ShutdownServerAsync`, and applies **`jsons/GameSavesPaths.json`** junction logic. UI lists are filled from the same JSON catalogs so drift with hard-coded GitHub URLs is reduced.
+The Flutter app now follows the same **remote manifest** rules as `RemoteManifest.cs`: environment variable `SALSANOW_MANIFEST_BASE` or `SalsaNOW.manifest.ini` beside the executable. It resolves the install root from `**jsons/directory.json`**, seeds `**SalsaNOWConfig.ini**` from the manifest when missing, installs apps from `**jsons/apps.json**`, shells from `**jsons/desktop.json**`, silent payloads from `**jsons/silentapps.json**`, runs the **Steam proxy / USG** sequence aligned with `SteamManager.ShutdownServerAsync`, and applies `**jsons/GameSavesPaths.json`** junction logic. UI lists are filled from the same JSON catalogs so drift with hard-coded GitHub URLs is reduced.
 
 ## Advantages of **psy_now** (Flutter / Dart)
 
