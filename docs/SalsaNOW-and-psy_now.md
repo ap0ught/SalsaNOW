@@ -17,6 +17,10 @@ Both projects target the same outcome on GeForce NOW: portable tools on disk, NV
 - **Ecosystem**: NuGet, Visual Studio, and existing contributors on the C# stack; MSTest and CI patterns already live in this repo.
 - **Upstream velocity**: Fixes and refactors land in `SalsaNOW/` first; psy_now was merged from an older snapshot and may lag until changes are ported.
 
+## psy_now parity with `SalsaNOW/` (manifest-driven)
+
+The Flutter app now follows the same **remote manifest** rules as `RemoteManifest.cs`: environment variable `SALSANOW_MANIFEST_BASE` or `SalsaNOW.manifest.ini` beside the executable. It resolves the install root from **`jsons/directory.json`**, seeds **`SalsaNOWConfig.ini`** from the manifest when missing, installs apps from **`jsons/apps.json`**, shells from **`jsons/desktop.json`**, silent payloads from **`jsons/silentapps.json`**, runs the **Steam proxy / USG** sequence aligned with `SteamManager.ShutdownServerAsync`, and applies **`jsons/GameSavesPaths.json`** junction logic. UI lists are filled from the same JSON catalogs so drift with hard-coded GitHub URLs is reduced.
+
 ## Advantages of **psy_now** (Flutter / Dart)
 
 - **Cross-platform UI**: One Dart UI can target Windows today and extend to Linux/Android/macOS where Flutter is supported, with less duplication than maintaining separate native UIs.

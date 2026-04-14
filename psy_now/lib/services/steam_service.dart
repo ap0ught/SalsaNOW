@@ -2,61 +2,82 @@ import 'dart:io';
 
 import 'package:fast_log/fast_log.dart';
 import 'package:http/http.dart' as http;
-import 'package:psy_now/utils/constants.dart';
+import 'package:psy_now/services/remote_manifest.dart';
 
-/// Service for managing Steam server proxy on GeForce NOW
+/// Port of `SalsaNOW/SteamManager.ShutdownServerAsync`.
 class SteamService {
-  final String globalDirectory;
-  final void Function(String message)? onLog;
-
   SteamService({
     required this.globalDirectory,
     this.onLog,
   });
 
-  /// Shutdown NVIDIA's Steam Server proxy and restart Steam
-  /// This allows all opted-in games to show up in the Steam library
+  final String globalDirectory;
+  final void Function(String message)? onLog;
+
+  static const _defaultKakaLockdownJson =
+      '{"server_port":9753,"server_address":"127.10.0.231","flavor":"","BlockedFunctions":{}}';
+
+  /// Steam proxy shutdown, lockdown JSON swap, appcache clear, USG helper download.
   Future<bool> shutdownSteamServer() async {
     try {
-      // Send POST request to shutdown Steam Server
-      onLog?.call('[+] Shutting down Steam Server...');
+      onLog?.call('[+] Initiating Steam proxy shutdown sequence...');
 
       try {
-        final response = await http.post(Uri.parse(AppConstants.steamServerUrl));
-        onLog?.call('[+] Steam Server response: ${response.body}');
-      } catch (e) {
-        onLog?.call('[!] Steam Server is not running or not accessible');
-      }
+        await http.post(Uri.parse('http://127.10.0.231:9753/shutdown'));
+      } catch (_) {}
 
-      // Kill Steam processes
-      await _killSteamProcesses();
+      final dummyJson =
+          '$globalDirectory${Platform.pathSeparator}kaka.json';
+      final usgMask =
+          '$globalDirectory${Platform.pathSeparator}conhost.exe';
 
-      // Reopen Steam library
+      await File(dummyJson).writeAsString(_defaultKakaLockdownJson);
+
       await Process.start(
-        'cmd',
-        ['/c', 'start', '', AppConstants.steamProtocol],
+        r'C:\Program Files (x86)\Steam\lockdown\server\server.exe',
+        [dummyJson],
         mode: ProcessStartMode.detached,
-        runInShell: true,
       );
 
-      onLog?.call('[+] Steam library reopened');
+      final cache = r'C:\Program Files (x86)\Steam\appcache';
+      final cacheDir = Directory(cache);
+      if (await cacheDir.exists()) {
+        await cacheDir.delete(recursive: true);
+      }
+
+      if (!RemoteManifest.isInitialized) {
+        onLog?.call(
+          '[!] USG step skipped: manifest not configured (need USG/bleh.exe URL)',
+        );
+        onLog?.call('[+] Steam proxy sequence complete (partial)');
+        return true;
+      }
+
+      final usgUri = Uri.parse(RemoteManifest.url('USG/bleh.exe'));
+      final res = await http.get(usgUri);
+      if (res.statusCode != 200) {
+        onLog?.call('[!] USG download HTTP ${res.statusCode}');
+        return false;
+      }
+      await File(usgMask).writeAsBytes(res.bodyBytes);
+
+      final usg = await Process.start(
+        usgMask,
+        [],
+        mode: ProcessStartMode.normal,
+      );
+      await usg.exitCode;
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      try {
+        if (await File(usgMask).exists()) await File(usgMask).delete();
+      } catch (_) {}
+
+      onLog?.call('[+] Steam proxy successfully bypassed.');
       return true;
     } catch (e) {
-      error('[SteamService] Error: $e');
-      onLog?.call('[!] Steam Server error: $e');
+      error('[SteamService] $e');
+      onLog?.call('[!] Steam proxy error: $e');
       return false;
-    }
-  }
-
-  /// Kill all Steam processes
-  Future<void> _killSteamProcesses() async {
-    try {
-      if (Platform.isWindows) {
-        await Process.run('taskkill', ['/F', '/IM', 'steam.exe']);
-        onLog?.call('[+] Killed Steam processes');
-      }
-    } catch (e) {
-      warn('[SteamService] Error killing Steam: $e');
     }
   }
 }

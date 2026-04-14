@@ -2,6 +2,8 @@
 
 > A cross-platform mod manager with pluggable **game profiles** (Elden Ring is the first shipped profile, not an implicit default). Profiles drive Steam app IDs, install folders, and verification paths.
 
+In the **SalsaNOW** monorepo this tree lives under **`SuperSalsaNOW/`** next to **`SalsaNOW/`** (.NET Framework 4.8) and **`psy_now/`** (Flutter). There is **no** assembly reference between `SalsaNOW` and `SuperSalsaNOW.Core` (net48 vs net8); treat integration as repo-level or copy patterns (for example manifest-hosted JSON) rather than a shared DLL until frameworks align.
+
 [.NET](https://dotnet.microsoft.com/)
 [License](LICENSE)
 [Platform](https://www.microsoft.com/windows)

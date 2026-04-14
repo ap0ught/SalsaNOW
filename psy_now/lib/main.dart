@@ -4,32 +4,39 @@ import 'package:arcane/arcane.dart';
 import 'package:fast_log/fast_log.dart';
 import 'package:psy_now/models/app_state.dart';
 import 'package:psy_now/screens/home_screen.dart';
+import 'package:psy_now/services/bootstrap_service.dart';
 import 'package:psy_now/services/config_service.dart';
 import 'package:psy_now/services/environment_service.dart';
+import 'package:psy_now/services/remote_manifest.dart';
 import 'package:psy_now/utils/constants.dart';
-
-// ██████╗ ███████╗██╗   ██╗███╗   ██╗ ██████╗ ██╗    ██╗
-// ██╔══██╗██╔════╝╚██╗ ██╔╝████╗  ██║██╔═══██╗██║    ██║
-// ██████╔╝███████╗ ╚████╔╝ ██╔██╗ ██║██║   ██║██║ █╗ ██║
-// ██╔═══╝ ╚════██║  ╚██╔╝  ██║╚██╗██║██║   ██║██║███╗██║
-// ██║     ███████║   ██║   ██║ ╚████║╚██████╔╝╚███╔███╔╝
-// ╚═╝     ╚══════╝   ╚═╝   ╚═╝  ╚═══╝ ╚═════╝  ╚══╝╚══╝
-//
-// PsyNow - GeForce NOW Environment Customization Tool
-// Rebuilt with Arcane UI Framework
-// Bundled apps: 7-Zip, Brave, Explorer++, DepotDownloader
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize app state
   final appState = AppState();
 
-  // Check GFN environment
-  appState.isGfnEnvironment = await EnvironmentService.isGeForceNowEnvironment();
+  appState.isGfnEnvironment =
+      await EnvironmentService.isGeForceNowEnvironment();
 
-  // Use local install directory
-  final globalDir = AppConstants.defaultInstallDir;
+  final manifestOk = await RemoteManifest.initialize();
+  appState.manifestConfigured = manifestOk;
+
+  var globalDir = AppConstants.defaultInstallDir;
+  if (manifestOk) {
+    try {
+      globalDir = await BootstrapService.resolveGlobalDirectory();
+      await BootstrapService.ensureConfigIni(globalDir);
+    } catch (e) {
+      error('[Main] Manifest bootstrap failed: $e');
+      warn('[Main] Falling back to ${AppConstants.defaultInstallDir}');
+      globalDir = AppConstants.defaultInstallDir;
+    }
+  } else {
+    warn(
+      '[Main] No manifest host; using ${AppConstants.defaultInstallDir}. Set SALSANOW_MANIFEST_BASE or SalsaNOW.manifest.ini.',
+    );
+  }
+
   try {
     await Directory(globalDir).create(recursive: true);
     appState.globalDirectory = globalDir;
@@ -38,7 +45,17 @@ void main() async {
     error('[Main] Error creating install directory: $e');
   }
 
-  // Initialize config service
+  if (manifestOk) {
+    try {
+      final apps = await BootstrapService.loadAppsCatalog();
+      appState.catalogAppNames = apps.map((a) => a.name).toList();
+      final desk = await BootstrapService.loadDesktopCatalog();
+      appState.catalogDesktopNames = desk.map((d) => d.name).toList();
+    } catch (e) {
+      warn('[Main] Could not prefetch catalog for UI: $e');
+    }
+  }
+
   ConfigService? configService;
   if (globalDir.isNotEmpty) {
     configService = ConfigService(globalDir);
@@ -94,7 +111,6 @@ class _PsyNowAppState extends State<PsyNowApp> {
   }
 }
 
-/// Extension to provide easy access to theme mode toggle
 extension PsyNowAppContext on BuildContext {
   void toggleTheme() {
     final state = findAncestorStateOfType<_PsyNowAppState>();

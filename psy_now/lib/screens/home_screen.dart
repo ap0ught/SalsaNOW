@@ -4,10 +4,13 @@ import 'package:psy_now/models/app_state.dart';
 import 'package:psy_now/screens/logs_screen.dart';
 import 'package:psy_now/screens/settings_screen.dart';
 import 'package:psy_now/services/app_installer.dart';
+import 'package:psy_now/services/bootstrap_service.dart';
+import 'package:psy_now/services/desktop_install_service.dart';
+import 'package:psy_now/services/game_saves_service.dart';
+import 'package:psy_now/services/remote_manifest.dart';
 import 'package:psy_now/services/shortcut_service.dart';
 import 'package:psy_now/services/steam_service.dart';
 import 'package:psy_now/services/window_service.dart';
-import 'package:psy_now/utils/constants.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,37 +44,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() => _isRunning = true);
 
-    appState.addLog('[+] Starting PsyNow setup...');
+    appState.addLog('[+] Starting PsyNow setup (SalsaNOW-aligned pipeline)...');
     appState.addLog('[+] Install directory: ${appState.globalDirectory}');
 
-    // Check environment
+    if (!RemoteManifest.isInitialized) {
+      appState.addLog(
+        '[!] Manifest host not set — USG step and JSON catalogs need SALSANOW_MANIFEST_BASE or SalsaNOW.manifest.ini',
+      );
+    }
+
     if (!appState.isGfnEnvironment) {
       appState.addLog('[!] Not a GeForce NOW environment');
       appState.addLog('[!] Some features may not work');
     }
 
-    // Start background services
     WindowService.startCustomExplorerKiller();
     appState.addLog('[+] Started CustomExplorer killer');
-
-    // Steam server shutdown
-    appState.steamStatus = InstallStatus.inProgress;
-    setState(() {});
-
-    final steamService = SteamService(
-      globalDirectory: appState.globalDirectory,
-      onLog: (msg) {
-        appState.addLog(msg);
-        setState(() {});
-      },
-    );
-    await steamService.shutdownSteamServer();
-    appState.steamStatus = InstallStatus.completed;
-    setState(() {});
-
-    // Install bundled apps
-    appState.appsStatus = InstallStatus.inProgress;
-    setState(() {});
 
     final appInstaller = AppInstaller(
       globalDirectory: appState.globalDirectory,
@@ -85,9 +73,54 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {});
       },
     );
-    await appInstaller.installAll();
-    appState.appsStatus = InstallStatus.completed;
+
+    appState.appsStatus = InstallStatus.inProgress;
     setState(() {});
+
+    try {
+      if (!RemoteManifest.isInitialized) {
+        throw StateError('Manifest not configured');
+      }
+      final apps = await BootstrapService.loadAppsCatalog();
+      await appInstaller.installAppsFromManifest(apps);
+
+      final desktop = await BootstrapService.loadDesktopCatalog();
+      final desktopSvc = DesktopInstallService(
+        globalDirectory: appState.globalDirectory,
+        config: config,
+        onLog: appState.addLog,
+      );
+      await desktopSvc.installFromCatalog(desktop);
+
+      final silent = await BootstrapService.loadSilentAppsCatalog();
+      await appInstaller.installSilentApps(silent);
+    } catch (e) {
+      appState.addLog('[!] Install phase error: $e');
+      appState.appsStatus = InstallStatus.failed;
+      setState(() {});
+    }
+
+    if (appState.appsStatus != InstallStatus.failed) {
+      appState.appsStatus = InstallStatus.completed;
+    }
+    setState(() {});
+
+    appState.steamStatus = InstallStatus.inProgress;
+    setState(() {});
+
+    final steamService = SteamService(
+      globalDirectory: appState.globalDirectory,
+      onLog: appState.addLog,
+    );
+    await steamService.shutdownSteamServer();
+    appState.steamStatus = InstallStatus.completed;
+    setState(() {});
+
+    final saves = GameSavesService(
+      globalDirectory: appState.globalDirectory,
+      onLog: appState.addLog,
+    );
+    await saves.setupJunctions();
 
     // Initialize shortcut service
     _shortcutService = ShortcutService(
@@ -165,39 +198,58 @@ class _HomeScreenState extends State<HomeScreen> {
                     'Install to: ${appState.globalDirectory}',
                     style: Theme.of(context).typography.small,
                   ),
+                  const Gap(4),
+                  Text(
+                    'Remote manifest: ${appState.manifestConfigured ? 'configured' : 'not set (optional SALSANOW_MANIFEST_BASE / SalsaNOW.manifest.ini)'}',
+                    style: Theme.of(context).typography.small,
+                  ),
                 ],
               ),
             ),
           ),
           const Gap(16),
 
-          // Bundled apps info
           Section(
-            titleText: 'Bundled Applications',
+            titleText: 'Apps (from jsons/apps.json)',
             child: Collection(
               children: [
-                for (final app in AppConstants.bundledApps)
-                  Tile(
-                    leading: const Icon(Icons.package),
-                    title: Text(app.name),
-                    subtitle: Text(app.exeName),
-                  ),
+                if (appState.catalogAppNames.isEmpty)
+                  const Tile(
+                    leading: Icon(Icons.package),
+                    title: Text('No catalog loaded'),
+                    subtitle: Text(
+                      'Configure manifest host to match SalsaNOW (see logs on Run Setup)',
+                    ),
+                  )
+                else
+                  for (final name in appState.catalogAppNames)
+                    Tile(
+                      leading: const Icon(Icons.package),
+                      title: Text(name),
+                      subtitle: const Text('Remote manifest entry'),
+                    ),
               ],
             ),
           ),
           const Gap(16),
 
-          // Shell environments
           Section(
-            titleText: 'Shell Environments',
+            titleText: 'Desktop / shells (from jsons/desktop.json)',
             child: Collection(
               children: [
-                for (final shell in AppConstants.shellEnvironments)
-                  Tile(
-                    leading: const Icon(Icons.layout),
-                    title: Text(shell.name),
-                    subtitle: Text(shell.exeName.isEmpty ? 'Config' : shell.exeName),
-                  ),
+                if (appState.catalogDesktopNames.isEmpty)
+                  const Tile(
+                    leading: Icon(Icons.layout),
+                    title: Text('No desktop entries loaded'),
+                    subtitle: Text('Same manifest host as SalsaNOW'),
+                  )
+                else
+                  for (final name in appState.catalogDesktopNames)
+                    Tile(
+                      leading: const Icon(Icons.layout),
+                      title: Text(name),
+                      subtitle: const Text('Remote manifest entry'),
+                    ),
               ],
             ),
           ),

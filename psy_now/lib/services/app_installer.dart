@@ -2,19 +2,14 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:fast_log/fast_log.dart';
+import 'package:psy_now/models/manifest_models.dart';
 import 'package:psy_now/services/config_service.dart';
 import 'package:psy_now/services/download_service.dart';
 import 'package:psy_now/services/environment_service.dart';
 import 'package:psy_now/services/shortcut_service.dart';
-import 'package:psy_now/utils/constants.dart';
 
-/// Service for downloading and installing applications
+/// Mirrors `SalsaNOW/AppInstaller.AppsInstallAsync` + `AppsInstallSilentAsync`.
 class AppInstaller {
-  final String globalDirectory;
-  final ConfigService config;
-  final void Function(String message)? onLog;
-  final void Function(String appName, double progress)? onProgress;
-
   AppInstaller({
     required this.globalDirectory,
     required this.config,
@@ -22,134 +17,178 @@ class AppInstaller {
     this.onProgress,
   });
 
-  /// Install all apps
-  Future<void> installAll() async {
-    for (final app in AppConstants.bundledApps) {
-      await installApp(app);
+  final String globalDirectory;
+  final ConfigService config;
+  final void Function(String message)? onLog;
+  final void Function(String appName, double progress)? onProgress;
+
+  Future<void> installAppsFromManifest(List<ManifestAppEntry> apps) async {
+    for (final app in apps) {
+      await _installMainApp(app);
     }
 
-    // Mark shortcuts as created if this was the first run
     if (!config.skipShortcutsCreation) {
       await config.setSkipShortcutsCreation(true);
     }
   }
 
-  /// Install a single app
-  Future<bool> installApp(DownloadableApp app) async {
-    final desktopPath = EnvironmentService.getDesktopPath();
-    final shortcutPath = '$desktopPath${Platform.pathSeparator}${app.name}.lnk';
+  Future<void> installSilentApps(List<ManifestSilentAppEntry> apps) async {
+    final silentRoot =
+        '$globalDirectory${Platform.pathSeparator}SilentApps';
+    await Directory(silentRoot).create(recursive: true);
 
-    String appDir;
-    String exePath;
+    for (final app in apps) {
+      try {
+        final appFolder =
+            '$silentRoot${Platform.pathSeparator}${app.name}';
+        final appPath =
+            '$silentRoot${Platform.pathSeparator}${app.fileName}.${app.fileExtension}';
+        final appZipPath =
+            '$appFolder${Platform.pathSeparator}${app.fileName}.${app.fileExtension}';
 
-    if (app.isZip) {
-      appDir = '$globalDirectory${Platform.pathSeparator}${app.name}';
-      exePath = '$appDir${Platform.pathSeparator}${app.exeName}';
-    } else {
-      appDir = globalDirectory;
-      exePath = '$globalDirectory${Platform.pathSeparator}${app.exeName}';
+        if (app.archive == 'true') {
+          if (await File(appZipPath).exists()) continue;
+          final zip = '$appFolder.zip';
+          await Directory(appFolder).create(recursive: true);
+          final ok = await DownloadService.downloadToFile(
+            app.url,
+            zip,
+            onLog: onLog,
+          );
+          if (!ok) continue;
+          await _extractZipFileToDir(zip, appFolder);
+          try {
+            await File(zip).delete();
+          } catch (_) {}
+          if (app.run == 'true') {
+            await Process.start(appZipPath, [],
+                mode: ProcessStartMode.detached);
+          }
+        } else {
+          if (!await File(appPath).exists()) {
+            await DownloadService.downloadToFile(
+              app.url,
+              appPath,
+              onLog: onLog,
+            );
+          }
+          if (app.run == 'true') {
+            await Process.start(
+              appPath,
+              [],
+              mode: ProcessStartMode.detached,
+            );
+          }
+        }
+      } catch (e) {
+        error('[AppInstaller] silent ${app.name}: $e');
+        onLog?.call('[!] Silent ${app.name}: $e');
+      }
     }
+  }
+
+  Future<void> _installMainApp(ManifestAppEntry app) async {
+    final desktopPath = EnvironmentService.getDesktopPath();
+    final shortcutPath =
+        '$desktopPath${Platform.pathSeparator}${app.name}.lnk';
+
+    final appDir =
+        '$globalDirectory${Platform.pathSeparator}${app.name}';
+    final appExePath =
+        '$globalDirectory${Platform.pathSeparator}${app.exeName}';
+    final appZipExe =
+        '$appDir${Platform.pathSeparator}${app.exeName}';
+
+    final isZip = app.fileExtension == 'zip';
+    final isExe = app.fileExtension == 'exe';
+
+    final alreadyExists = (isZip && await Directory(appDir).exists()) ||
+        (isExe && await File(appExePath).exists());
 
     try {
-      // Check if already installed
-      if (app.isZip) {
-        final dirExists = await Directory(appDir).exists();
-        if (dirExists) {
-          onLog?.call('[!] ${app.name} already installed');
-          _maybeCreateShortcut(shortcutPath, exePath);
-          _maybeRunApp(app, exePath);
-          return true;
+      if (!alreadyExists) {
+        onLog?.call('[+] Installing ${app.name}...');
+        onProgress?.call(app.name, 0);
+
+        if (isZip) {
+          final zipPath = '$appDir.zip';
+          await Directory(appDir).parent.create(recursive: true);
+          final ok = await DownloadService.downloadToFile(
+            app.url,
+            zipPath,
+            onProgress: (p) => onProgress?.call(app.name, p * 0.5),
+            onLog: onLog,
+          );
+          if (!ok) return;
+          await _extractZipFileToDir(zipPath, appDir);
+          try {
+            await File(zipPath).delete();
+          } catch (_) {}
+
+          await _maybeShortcut(shortcutPath, appZipExe);
+          if (app.run == 'true') {
+            await Process.start(appZipExe, [],
+                mode: ProcessStartMode.detached);
+          }
+        } else if (isExe) {
+          final ok = await DownloadService.downloadToFile(
+            app.url,
+            appExePath,
+            onProgress: (p) => onProgress?.call(app.name, p),
+            onLog: onLog,
+          );
+          if (!ok) return;
+          await _maybeShortcut(shortcutPath, appExePath);
+          if (app.run == 'true') {
+            await Process.start(appExePath, [],
+                mode: ProcessStartMode.detached);
+          }
         }
+
+        onProgress?.call(app.name, 1);
+        onLog?.call('[+] Installed ${app.name}');
       } else {
-        final fileExists = await File(exePath).exists();
-        if (fileExists) {
-          onLog?.call('[!] ${app.name} already installed');
-          _maybeCreateShortcut(shortcutPath, exePath);
-          _maybeRunApp(app, exePath);
-          return true;
+        onLog?.call('[!] ${app.name} already installed');
+        if (isZip) {
+          await _maybeShortcut(shortcutPath, appZipExe);
+          if (app.run == 'true') {
+            await Process.start(appZipExe, [],
+                mode: ProcessStartMode.detached);
+          }
+        } else if (isExe) {
+          await _maybeShortcut(shortcutPath, appExePath);
+          if (app.run == 'true') {
+            await Process.start(appExePath, [],
+                mode: ProcessStartMode.detached);
+          }
         }
       }
-
-      onLog?.call('[+] Installing ${app.name}...');
-      onProgress?.call(app.name, 0.0);
-
-      // Download the file
-      final bytes = await DownloadService.downloadFile(
-        app.downloadUrl,
-        onProgress: (progress) {
-          // Download is 0-50% of total progress
-          onProgress?.call(app.name, progress * 0.5);
-        },
-        onLog: onLog,
-      );
-
-      if (bytes == null) {
-        onLog?.call('[!] Failed to download ${app.name}');
-        return false;
-      }
-
-      onProgress?.call(app.name, 0.5);
-
-      if (app.isZip) {
-        // Extract ZIP archive
-        await _extractZip(bytes, appDir, app.name);
-      } else {
-        // Save single executable
-        await Directory(globalDirectory).create(recursive: true);
-        final file = File(exePath);
-        await file.writeAsBytes(bytes);
-      }
-
-      onProgress?.call(app.name, 1.0);
-      onLog?.call('[+] Installed ${app.name}');
-
-      _maybeCreateShortcut(shortcutPath, exePath);
-      _maybeRunApp(app, exePath);
-
-      return true;
     } catch (e) {
-      error('[AppInstaller] Error installing ${app.name}: $e');
-      onLog?.call('[!] Error installing ${app.name}: $e');
-      return false;
+      error('[AppInstaller] ${app.name}: $e');
+      onLog?.call('[!] ${app.name}: $e');
     }
   }
 
-  Future<void> _extractZip(
-      List<int> bytes, String destDir, String appName) async {
+  Future<void> _maybeShortcut(String shortcutPath, String targetPath) async {
+    if (!config.skipShortcutsCreation) {
+      await ShortcutService.createShortcut(shortcutPath, targetPath);
+    }
+  }
+
+  Future<void> _extractZipFileToDir(String zipPath, String destDir) async {
+    final bytes = await File(zipPath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
-
     await Directory(destDir).create(recursive: true);
-
-    int processed = 0;
-    final total = archive.length;
-
     for (final file in archive) {
-      final filePath = '$destDir${Platform.pathSeparator}${file.name}';
-
+      final outPath =
+          '$destDir${Platform.pathSeparator}${file.name}';
       if (file.isFile) {
-        final outFile = File(filePath);
-        await outFile.create(recursive: true);
+        final outFile = File(outPath);
+        await outFile.parent.create(recursive: true);
         await outFile.writeAsBytes(file.content as List<int>);
       } else {
-        await Directory(filePath).create(recursive: true);
+        await Directory(outPath).create(recursive: true);
       }
-
-      processed++;
-      // Extraction is 50-100% of total progress
-      onProgress?.call(appName, 0.5 + (0.5 * processed / total));
-    }
-  }
-
-  void _maybeCreateShortcut(String shortcutPath, String targetPath) {
-    if (!config.skipShortcutsCreation) {
-      ShortcutService.createShortcut(shortcutPath, targetPath);
-    }
-  }
-
-  void _maybeRunApp(DownloadableApp app, String exePath) {
-    if (app.runAfterInstall) {
-      info('[AppInstaller] Starting ${app.name}');
-      Process.start(exePath, [], mode: ProcessStartMode.detached);
     }
   }
 }

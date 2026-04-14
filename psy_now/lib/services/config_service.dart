@@ -3,24 +3,23 @@ import 'dart:io';
 import 'package:fast_log/fast_log.dart';
 import 'package:psy_now/utils/constants.dart';
 
-/// Service for reading and writing SalsaNOWConfig.ini
+/// Reads `SalsaNOWConfig.ini` in the global directory (same file name as SalsaNOW).
 class ConfigService {
-  final String globalDirectory;
-  late File _configFile;
-
-  // Config values
-  bool skipShortcutsCreation = false;
-  bool skipSeelenUiExecution = false;
-  bool bingPhotoOfTheDayWallpaper = false;
-
   ConfigService(this.globalDirectory) {
     _configFile =
         File('$globalDirectory${Platform.pathSeparator}${AppConstants.configFileName}');
   }
 
+  final String globalDirectory;
+  late File _configFile;
+
+  bool skipShortcutsCreation = false;
+  bool seelenInstallEnabled = false;
+  bool bingPhotoOfTheDayWallpaper = false;
+  bool nvidiaRaytracing = false;
+
   String get configPath => _configFile.path;
 
-  /// Load configuration from INI file
   Future<void> load() async {
     if (!await _configFile.exists()) {
       info('[Config] Config file not found, using defaults');
@@ -32,35 +31,45 @@ class ConfigService {
 
       for (final line in lines) {
         final trimmed = line.trim();
-        if (trimmed.isEmpty || trimmed.startsWith('#') || trimmed.startsWith(';')) {
+        if (trimmed.isEmpty ||
+            trimmed.startsWith('#') ||
+            trimmed.startsWith(';')) {
           continue;
         }
 
         if (trimmed.contains('SkipShortcutsCreation')) {
           skipShortcutsCreation = trimmed.contains('= "1"');
-        } else if (trimmed.contains('SkipSeelenUiExecution')) {
-          skipSeelenUiExecution = trimmed.contains('= "1"');
-        } else if (trimmed.contains('BingPhotoOfTheDayWallpaper')) {
+        }
+        // Matches SalsaNOW `SalsaSettings`: true when line contains `SkipSeelenUiExecution = "0"`
+        if (trimmed.contains('SkipSeelenUiExecution')) {
+          seelenInstallEnabled = trimmed.contains('= "0"');
+        }
+        if (trimmed.contains('BingPhotoOfTheDayWallpaper')) {
           bingPhotoOfTheDayWallpaper = trimmed.contains('= "1"');
+        }
+        if (trimmed.contains('NvidiaRaytracing')) {
+          nvidiaRaytracing = trimmed.contains('= "1"');
         }
       }
 
-      info('[Config] Loaded: shortcuts=$skipShortcutsCreation, seelen=$skipSeelenUiExecution, bing=$bingPhotoOfTheDayWallpaper');
+      info(
+        '[Config] Loaded shortcuts=$skipShortcutsCreation seelenFlow=$seelenInstallEnabled bing=$bingPhotoOfTheDayWallpaper rtx=$nvidiaRaytracing',
+      );
     } catch (e) {
       error('[Config] Error loading config: $e');
     }
   }
 
-  /// Save configuration to INI file
   Future<void> save() async {
     try {
       final content = '''
-; SalsaNOW/PsyNow Configuration
-; 0 = enabled, 1 = disabled/skip
+; SalsaNOW / PsyNow configuration (same keys as desktop SalsaNOW)
+; 0 = enabled, 1 = disabled/skip (for shortcut flag — PsyNow extension)
 
 SkipShortcutsCreation = "${skipShortcutsCreation ? '1' : '0'}"
-SkipSeelenUiExecution = "${skipSeelenUiExecution ? '1' : '0'}"
+SkipSeelenUiExecution = "${seelenInstallEnabled ? '0' : '1'}"
 BingPhotoOfTheDayWallpaper = "${bingPhotoOfTheDayWallpaper ? '1' : '0'}"
+NvidiaRaytracing = "${nvidiaRaytracing ? '1' : '0'}"
 ''';
 
       await _configFile.writeAsString(content);
@@ -70,19 +79,23 @@ BingPhotoOfTheDayWallpaper = "${bingPhotoOfTheDayWallpaper ? '1' : '0'}"
     }
   }
 
-  /// Set a config value and save
   Future<void> setSkipShortcutsCreation(bool value) async {
     skipShortcutsCreation = value;
     await save();
   }
 
-  Future<void> setSkipSeelenUiExecution(bool value) async {
-    skipSeelenUiExecution = value;
+  Future<void> setSeelenInstallEnabled(bool value) async {
+    seelenInstallEnabled = value;
     await save();
   }
 
   Future<void> setBingPhotoOfTheDayWallpaper(bool value) async {
     bingPhotoOfTheDayWallpaper = value;
+    await save();
+  }
+
+  Future<void> setNvidiaRaytracing(bool value) async {
+    nvidiaRaytracing = value;
     await save();
   }
 }

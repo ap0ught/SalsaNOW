@@ -13,6 +13,9 @@ class AppState {
   // Environment
   bool isGfnEnvironment = false;
   String globalDirectory = '';
+  bool manifestConfigured = false;
+  List<String> catalogAppNames = [];
+  List<String> catalogDesktopNames = [];
 
   // Installation status
   InstallStatus appsStatus = InstallStatus.pending;

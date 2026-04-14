@@ -7,6 +7,8 @@ namespace SalsaNOW
     /// Resolves the root URL for bundled JSON/config hosted alongside the app (no host baked into source).
     /// Set <c>SALSANOW_MANIFEST_BASE</c> or place <c>SalsaNOW.manifest.ini</c> next to the executable with
     /// <c>ManifestBaseUrl=https://your-host</c> (no trailing slash required).
+    /// The Flutter client <c>psy_now</c> uses the same contract so both stacks pull identical <c>jsons/*</c> payloads.
+    /// <c>SuperSalsaNOW</c> (net8, under <c>../SuperSalsaNOW</c>) is a separate mod-manager line; it does not replace this host pattern.
     /// </summary>
     internal static class RemoteManifest
     {

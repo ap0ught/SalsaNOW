@@ -4,41 +4,14 @@ A GeForce NOW environment customization tool built with Flutter and the Arcane U
 
 ## Overview
 
-PsyNow enhances your GeForce NOW gaming sessions by downloading and installing portable applications, custom shell environments, and managing system integrations - all without requiring permanent changes to the cloud VM.
+PsyNow drives the same GeForce NOW setup as **SalsaNOW**, using the **same remote manifest** as the C# app: set `SALSANOW_MANIFEST_BASE` or place `SalsaNOW.manifest.ini` (with `ManifestBaseUrl=...`) next to the Flutter executable. The install root comes from **`jsons/directory.json`**; apps, desktop shells, silent tools, Steam proxy + USG, and save junctions follow the same `jsons/*` contracts as `SalsaNOW/Program.cs`. If no manifest is configured, PsyNow falls back to `C:\PsyNow` and logs a warning (USG and JSON-driven installs require the host).
 
 ## Features
 
-- **App Downloads & Installation** - Downloads portable apps from GitHub releases and extracts to `C:\PsyNow`
-- **Shell Environment Support** - Seelen UI and WinXShell desktop replacements
-- **Steam Integration** - Shuts down NVIDIA's Steam proxy to unlock full library access
-- **Shortcut Management** - Syncs desktop shortcuts between sessions
-- **Window Management** - Automatically closes unwanted GFN windows (CustomExplorer)
-- **Progress Tracking** - Real-time download and extraction progress
-
-## Applications (Downloaded on Setup)
-
-| App | Description |
-|-----|-------------|
-| 7-Zip | File archiver and manager |
-| Brave | Privacy-focused web browser |
-| Explorer++ | Windows Explorer replacement |
-| DepotDownloader | Steam depot/game downloader |
-| Notepad++ | Advanced text editor |
-| qBittorrent | BitTorrent client |
-| System Informer | System monitoring tool |
-| Epic Games Portable | Portable Epic Games launcher |
-| Epic Games Installer | GFN-compatible Epic installer |
-| Ctrl+Tab | Alt-Tab replacement utility |
-| Steam Web App | Lightweight Steam web interface |
-
-## Shell Environments
-
-| Shell | Description |
-|-------|-------------|
-| Seelen UI | Modern Windows shell replacement |
-| WinXShell | Classic shell with taskbar |
-| WinXShell Steam | Steam-themed variant |
-| WinXShell Ubisoft | Ubisoft-themed variant |
+- **Manifest-aligned installs** — `apps.json`, `desktop.json`, `silentapps.json`, `GameSavesPaths.json`
+- **Steam integration** — POST shutdown, lockdown JSON, appcache clear, `USG/bleh.exe` from manifest
+- **SalsaNOWConfig.ini** — same filename and key semantics as desktop SalsaNOW (`SkipSeelenUiExecution`, etc.)
+- **Shortcuts & CustomExplorer** — same helper behavior as before
 
 ## Building
 

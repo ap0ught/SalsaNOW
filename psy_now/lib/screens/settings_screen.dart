@@ -49,13 +49,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // PsyNow config section
           if (config != null) ...[
             Section(
-              titleText: 'PsyNow Options',
+              titleText: 'SalsaNOW-compatible options',
               child: Collection(
                 children: [
                   _buildSwitchTile(
                     icon: Icons.link,
                     title: 'Skip Shortcuts Creation',
-                    subtitle: 'Don\'t create desktop shortcuts on startup',
+                    subtitle: 'Don\'t create desktop shortcuts on install',
                     value: config.skipShortcutsCreation,
                     onChanged: (value) async {
                       await config.setSkipShortcutsCreation(value);
@@ -64,21 +64,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   _buildSwitchTile(
                     icon: Icons.desktop,
-                    title: 'Skip Seelen UI',
-                    subtitle: 'Don\'t launch Seelen UI desktop shell',
-                    value: config.skipSeelenUiExecution,
+                    title: 'Allow Seelen UI flow',
+                    subtitle: 'Same meaning as SalsaNOW INI: SkipSeelenUiExecution = "0" when on',
+                    value: config.seelenInstallEnabled,
                     onChanged: (value) async {
-                      await config.setSkipSeelenUiExecution(value);
+                      await config.setSeelenInstallEnabled(value);
                       setState(() {});
                     },
                   ),
                   _buildSwitchTile(
                     icon: Icons.image,
                     title: 'Bing Wallpaper',
-                    subtitle: 'Use Bing photo of the day as wallpaper',
+                    subtitle: 'BingPhotoOfTheDayWallpaper = "1" in SalsaNOWConfig.ini',
                     value: config.bingPhotoOfTheDayWallpaper,
                     onChanged: (value) async {
                       await config.setBingPhotoOfTheDayWallpaper(value);
+                      setState(() {});
+                    },
+                  ),
+                  _buildSwitchTile(
+                    icon: Icons.bolt,
+                    title: 'Nvidia Raytracing flag',
+                    subtitle: 'Stored for parity; desktop SalsaNOW applies RTX via NVAPI',
+                    value: config.nvidiaRaytracing,
+                    onChanged: (value) async {
+                      await config.setNvidiaRaytracing(value);
                       setState(() {});
                     },
                   ),
