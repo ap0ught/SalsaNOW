@@ -7,6 +7,16 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SalsaNOW", "SalsaNOW\SalsaN
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SalsaNOW.Tests", "SalsaNOW.Tests\SalsaNOW.Tests.csproj", "{A7E4B2C1-9F3D-4E8A-B5C6-1D2E3F4A5B6C}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SuperSalsaNOW", "SuperSalsaNOW", "{B4C58F01-2A3E-4F5D-9B1C-8E7F6A5D4C3B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuperSalsaNOW.Core", "SuperSalsaNOW\src\SuperSalsaNOW.Core\SuperSalsaNOW.Core.csproj", "{8E9B7771-A955-45E2-9083-65280F472E05}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuperSalsaNOW.Windows", "SuperSalsaNOW\src\SuperSalsaNOW.Windows\SuperSalsaNOW.Windows.csproj", "{D3953CEA-0962-44E7-B041-460ADBDF58CE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuperSalsaNOW.Cli", "SuperSalsaNOW\src\SuperSalsaNOW.Cli\SuperSalsaNOW.Cli.csproj", "{AEADB7DA-8275-4807-97EA-4D5C4C1388EF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuperSalsaNOW.Core.Tests", "SuperSalsaNOW\tests\SuperSalsaNOW.Core.Tests\SuperSalsaNOW.Core.Tests.csproj", "{92F54E66-5684-45C9-AC5E-545947402C0D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,9 +31,31 @@ Global
 		{A7E4B2C1-9F3D-4E8A-B5C6-1D2E3F4A5B6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A7E4B2C1-9F3D-4E8A-B5C6-1D2E3F4A5B6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A7E4B2C1-9F3D-4E8A-B5C6-1D2E3F4A5B6C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E9B7771-A955-45E2-9083-65280F472E05}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E9B7771-A955-45E2-9083-65280F472E05}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E9B7771-A955-45E2-9083-65280F472E05}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E9B7771-A955-45E2-9083-65280F472E05}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D3953CEA-0962-44E7-B041-460ADBDF58CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3953CEA-0962-44E7-B041-460ADBDF58CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3953CEA-0962-44E7-B041-460ADBDF58CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3953CEA-0962-44E7-B041-460ADBDF58CE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AEADB7DA-8275-4807-97EA-4D5C4C1388EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AEADB7DA-8275-4807-97EA-4D5C4C1388EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AEADB7DA-8275-4807-97EA-4D5C4C1388EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AEADB7DA-8275-4807-97EA-4D5C4C1388EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{92F54E66-5684-45C9-AC5E-545947402C0D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{92F54E66-5684-45C9-AC5E-545947402C0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{92F54E66-5684-45C9-AC5E-545947402C0D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{92F54E66-5684-45C9-AC5E-545947402C0D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{8E9B7771-A955-45E2-9083-65280F472E05} = {B4C58F01-2A3E-4F5D-9B1C-8E7F6A5D4C3B}
+		{D3953CEA-0962-44E7-B041-460ADBDF58CE} = {B4C58F01-2A3E-4F5D-9B1C-8E7F6A5D4C3B}
+		{AEADB7DA-8275-4807-97EA-4D5C4C1388EF} = {B4C58F01-2A3E-4F5D-9B1C-8E7F6A5D4C3B}
+		{92F54E66-5684-45C9-AC5E-545947402C0D} = {B4C58F01-2A3E-4F5D-9B1C-8E7F6A5D4C3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {9C03456A-9DEE-4AD2-8D04-02BE1EFB787E}

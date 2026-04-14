@@ -6,9 +6,10 @@
 
 **Discord Server: https://discord.com/invite/ZQqhh4uSU2**
 
-This repository contains **two** clients for the same GeForce NOW customization workflow (portable apps, Steam unlock, optional shells). **SalsaNOW** in `SalsaNOW/` is the primary C# application; **psy_now** in `psy_now/` is a Flutter/Dart client derived from [NextdoorPsycho/PsyNow](https://github.com/NextdoorPsycho/PsyNow). When to use which, build steps, and trade-offs are documented in [**docs/SalsaNOW-and-psy_now.md**](docs/SalsaNOW-and-psy_now.md).
+This repository contains **SalsaNOW** and **psy_now** for the GeForce NOW customization workflow (portable apps, Steam unlock, optional shells), plus **SuperSalsaNOW** ([psingley/SuperSalsaNOW](https://github.com/psingley/SuperSalsaNOW)) under `SuperSalsaNOW/` — a .NET mod-manager CLI with pluggable game profiles (Elden Ring is the first catalog entry, not a silent default). **psy_now** is a Flutter/Dart client derived from [NextdoorPsycho/PsyNow](https://github.com/NextdoorPsycho/PsyNow). SalsaNOW vs psy_now trade-offs: [**docs/SalsaNOW-and-psy_now.md**](docs/SalsaNOW-and-psy_now.md).
 
-| Client | Path | Typical use |
-|--------|------|----------------|
-| SalsaNOW | `SalsaNOW/` | Production builds, updater, full alignment with the documentation site |
-| psy_now | `psy_now/` | `flutter build windows` (or other targets); optional cross-platform UI |
+| Component | Path | Typical use |
+|-----------|------|----------------|
+| SalsaNOW | `SalsaNOW/` | Production GFN builds, updater, documentation site |
+| psy_now | `psy_now/` | `flutter build windows` (or other targets); optional Flutter UI |
+| SuperSalsaNOW | `SuperSalsaNOW/` | `dotnet build SuperSalsaNOW/SuperSalsaNOW.sln`; Steam/mod workflow (Windows-focused) |
