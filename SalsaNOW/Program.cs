@@ -30,6 +30,14 @@ namespace SalsaNOW
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
             ServicePointManager.ServerCertificateValidationCallback += (sender, cert, chain, errors) => true;
 
+            try { RemoteManifest.Initialize(); }
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine("[!] " + ex.Message);
+                await Task.Delay(8000);
+                Environment.Exit(1);
+            }
+
             await Startup();
             
             // Load configuration once to share settings across modules
@@ -73,7 +81,7 @@ namespace SalsaNOW
                 
                 using (var wc = new WebClient())
                 {
-                    var dir = JsonConvert.DeserializeObject<System.Collections.Generic.List<SavePath>>(await wc.DownloadStringTaskAsync("https://salsanowfiles.work/jsons/directory.json"))[0];
+                    var dir = JsonConvert.DeserializeObject<System.Collections.Generic.List<SavePath>>(await wc.DownloadStringTaskAsync(RemoteManifest.Url("jsons/directory.json")))[0];
                     globalDirectory = dir.directoryCreate;
                     Directory.CreateDirectory(globalDirectory);
                     
@@ -82,7 +90,7 @@ namespace SalsaNOW
                     SalsaLogger.Info($"Main directory created {globalDirectory}");
                     
                     string cfg = Path.Combine(globalDirectory, "SalsaNOWConfig.ini");
-                    if (!System.IO.File.Exists(cfg)) await wc.DownloadFileTaskAsync(new Uri("https://salsanowfiles.work/jsons/SalsaNOWConfig.ini"), cfg);
+                    if (!System.IO.File.Exists(cfg)) await wc.DownloadFileTaskAsync(new Uri(RemoteManifest.Url("jsons/SalsaNOWConfig.ini")), cfg);
                 }
             }
             // Upload Crashlogs to paste.rs and show the user a link to forward to the Devs

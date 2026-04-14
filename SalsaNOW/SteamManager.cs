@@ -10,6 +10,9 @@ namespace SalsaNOW
 {
     internal static class SteamManager
     {
+        private const string DefaultKakaLockdownJson =
+            "{\"server_port\":9753,\"server_address\":\"127.10.0.231\",\"flavor\":\"\",\"BlockedFunctions\":{}}";
+
         // Steam Server (NVIDIA Made Proxy Interceptor for Steam) "127.10.0.231:9753"
         // Steam Server communicates with Steam by proxy and intercepts function calls from Steam by
         // making them not happen or replaces them with special made ones to do something else.
@@ -27,8 +30,9 @@ namespace SalsaNOW
                 using (var wc = new WebClient())
                 {
                     try { await wc.UploadStringTaskAsync("http://127.10.0.231:9753/shutdown", "POST"); } catch { }
-                    await wc.DownloadFileTaskAsync(new Uri("https://salsanowfiles.work/jsons/kaka.json"), dummyJson);
                 }
+
+                File.WriteAllText(dummyJson, DefaultKakaLockdownJson);
 
                 // Force lockdown server to use our fake JSON definition
                 Process.Start(new ProcessStartInfo
@@ -44,7 +48,7 @@ namespace SalsaNOW
                 if (Directory.Exists(cache)) Directory.Delete(cache, true);
 
                 // Steam USG Bypass Part (Temporary until patch discovered)
-                using (var wc = new WebClient()) await wc.DownloadFileTaskAsync(new Uri("https://salsanowfiles.work/USG/bleh.exe"), usgMask);
+                using (var wc = new WebClient()) await wc.DownloadFileTaskAsync(new Uri(RemoteManifest.Url("USG/bleh.exe")), usgMask);
                 var usg = Process.Start(usgMask);
                 if (usg != null) { while (!usg.HasExited) await Task.Delay(1000); }
                 await Task.Delay(200);
@@ -62,7 +66,7 @@ namespace SalsaNOW
             {
                 SalsaLogger.Info("Setting up Cloud Save directory junctions...");
                 string json;
-                using (var wc = new WebClient()) json = await wc.DownloadStringTaskAsync("https://salsanowfiles.work/jsons/GameSavesPaths.json");
+                using (var wc = new WebClient()) json = await wc.DownloadStringTaskAsync(RemoteManifest.Url("jsons/GameSavesPaths.json"));
                 var savePaths = JsonConvert.DeserializeObject<GamesSavePaths>(json);
                 string savesRoot = Path.Combine(globalDirectory, "Game Saves");
                 Directory.CreateDirectory(savesRoot);

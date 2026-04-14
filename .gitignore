@@ -364,3 +364,4 @@ FodyWeavers.xsd
 
 # local EXEs
 .tools/
+/.idea/

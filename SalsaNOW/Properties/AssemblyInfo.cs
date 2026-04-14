@@ -19,6 +19,8 @@ using System.Runtime.InteropServices;
 // COM, set the ComVisible attribute to true on that type.
 [assembly: ComVisible(false)]
 
+[assembly: InternalsVisibleTo("SalsaNOW.Tests")]
+
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("000a320f-3b86-48fc-b3a0-133279f9b47c")]
 
