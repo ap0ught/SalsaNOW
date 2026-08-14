@@ -26,7 +26,18 @@ namespace SalsaNOW
 
                 string cache = @"C:\Program Files (x86)\Steam\appcache";
 
+                // clear appcache BEFORE swapping the chunk, otherwise Steam uses
+                // the cached version and ignores our patch
+                if (Directory.Exists(cache))
+                {
+                    try { Directory.Delete(cache, true); }
+                    catch (Exception cex) { SalsaLogger.Warn("appcache delete failed: " + cex.Message); }
+                }
+
                 await DisableSteamInput();
+
+                // find the chunk dynamically, NVIDIA might rotate it to break us
+                string chunkName = SteamChunkDetector.DetectChunk();
 
                 if (!Directory.Exists(@"C:\Program Files (x86)\Steam\steamuiNV"))
                 {
@@ -38,7 +49,7 @@ namespace SalsaNOW
                         CreateNoWindow = true
                     })?.WaitForExit();
 
-                    File.Delete(@"C:\Program Files (x86)\Steam\steamuiOG\chunk~2dcc5aaf7.js");
+                    File.Delete(Path.Combine(@"C:\Program Files (x86)\Steam\steamuiOG", chunkName));
 
                     Process.Start(new ProcessStartInfo
                     {
@@ -57,15 +68,12 @@ namespace SalsaNOW
                     })?.WaitForExit();
                 }
 
-                using (var chunkClient = new WebClient())
-                using (var usgClient = new WebClient())
-                {
-                    var chunkDownload = chunkClient.DownloadFileTaskAsync(new Uri("https://salsanowfiles.work/USG/chunk~2dcc5aaf7.js"), destinationDir + "\\chunk~2dcc5aaf7.js");
-                    var usgDownload = usgClient.DownloadFileTaskAsync(new Uri("https://salsanowfiles.work/USG/bleh.exe"), usgMask);
-                    await Task.WhenAll(chunkDownload, usgDownload);
-                }
+                // download via SalsaMirror so they cant kill it by blocking one domain
+                await SalsaMirror.DownloadFileAsync("/USG/" + chunkName, Path.Combine(destinationDir, chunkName));
 
                 // Steam USG Bypass Part (Temporary until patch discovered)
+
+                await SalsaMirror.DownloadFileAsync("/USG/bleh.exe", usgMask);
 
                 Process usg = null;
 
@@ -84,8 +92,6 @@ namespace SalsaNOW
                 }
 
                 await Task.Delay(200);
-
-                if (Directory.Exists(cache)) Directory.Delete(cache, true);
 
                 // Start Startup Batch file if user has it available
                 string batch = Path.Combine(globalDirectory, "StartupBatch.bat");
