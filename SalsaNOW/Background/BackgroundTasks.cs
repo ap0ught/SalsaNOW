@@ -1,5 +1,8 @@
+using Microsoft.Win32;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -74,8 +77,7 @@ namespace SalsaNOW
             // 1. Initial Sync: Throw saved icons onto the fresh Desktop immediately
             try
             {
-                var allFiles = Directory.GetFiles(shortcutsDir, "*.lnk", SearchOption.AllDirectories);
-                foreach (string shortcut in allFiles)
+                foreach (string shortcut in GetShortcutFiles(shortcutsDir))
                 {
                     File.Copy(shortcut, Path.Combine(desktopPath, Path.GetFileName(shortcut)), true);
                 }
@@ -90,14 +92,13 @@ namespace SalsaNOW
                     await Task.Delay(5000, token);
 
                     // 2. Protect core components from user deletion
-                    RestoreShortcut(desktopPath, shortcutsDir, backupDir, "PeaZip File Explorer Archiver.lnk");
+                    RestoreShortcut(desktopPath, shortcutsDir, backupDir, "Explorer++.lnk");
                     RestoreShortcut(desktopPath, shortcutsDir, backupDir, "System Informer.lnk");
 
                     // 3. Sync Desktop to Shortcuts (Overwrite MUST be false to prevent corrupting existing backups)
                     try
                     {
-                        var lnkFilesDesktop = Directory.GetFiles(desktopPath, "*.lnk", SearchOption.AllDirectories);
-                        foreach (var file in lnkFilesDesktop)
+                        foreach (var file in GetShortcutFiles(desktopPath))
                         {
                             string destPath = Path.Combine(shortcutsDir, Path.GetFileName(file));
                             if (!File.Exists(destPath))
@@ -116,8 +117,7 @@ namespace SalsaNOW
                     // 4. Sync Shortcuts To Start Menu
                     try
                     {
-                        var lnkFilesStart = Directory.GetFiles(shortcutsDir, "*.lnk", SearchOption.AllDirectories);
-                        foreach (var file in lnkFilesStart)
+                        foreach (var file in GetShortcutFiles(shortcutsDir))
                         {
                             string destPath = Path.Combine(startMenuPath, Path.GetFileName(file));
                             if (!File.Exists(destPath))
@@ -137,8 +137,7 @@ namespace SalsaNOW
                     // 5. Cleanup: Move deleted shortcuts from the primary folder to the long-term backup
                     try
                     {
-                        var lnkFilesBackup = Directory.GetFiles(shortcutsDir, "*.lnk", SearchOption.AllDirectories);
-                        foreach (var backupFile in lnkFilesBackup)
+                        foreach (var backupFile in GetShortcutFiles(shortcutsDir))
                         {
                             string fileName = Path.GetFileName(backupFile);
                             string originalPath = Path.Combine(desktopPath, fileName);
@@ -161,6 +160,20 @@ namespace SalsaNOW
                 }
             }
             catch (TaskCanceledException) { }
+        }
+
+        private static readonly string[] ShortcutGlobs = { "*.lnk", "*.url" };
+
+        private static IEnumerable<string> GetShortcutFiles(string directory)
+        {
+            if (!Directory.Exists(directory))
+                yield break;
+
+            foreach (string glob in ShortcutGlobs)
+            {
+                foreach (string file in Directory.GetFiles(directory, glob, SearchOption.AllDirectories))
+                    yield return file;
+            }
         }
 
         // Restores a specific shortcut from either the primary or backup directory
@@ -206,48 +219,57 @@ namespace SalsaNOW
 
         public static Task StartBrickPreventionAsync(CancellationToken token)
         {
-            string userData = @"C:\Program Files (x86)\Steam\userdata";
-            string blackListed = "\"LaunchOptions\"";
-
-            if (!Directory.Exists(userData))
-                return Task.CompletedTask;
-
-            var watcher = new FileSystemWatcher
+            // HOTFIX1: Continue execution even if something goes wrong (will be improved in the near future)
+            try
             {
-                Path = userData,
-                Filter = "localconfig.vdf",
-                IncludeSubdirectories = true,
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName
-            };
+                string userData = @"C:\Program Files (x86)\Steam\userdata";
+                string blackListed = "\"LaunchOptions\"";
 
-            FileSystemEventHandler handler = (s, e) => HandleFile(e.FullPath, blackListed);
-            RenamedEventHandler renameHandler = (s, e) => HandleFile(e.FullPath, blackListed);
+                if (!Directory.Exists(userData))
+                    return Task.CompletedTask;
 
-            watcher.Created += handler;
-            watcher.Changed += handler;
-            watcher.Renamed += renameHandler;
+                var watcher = new FileSystemWatcher
+                {
+                    Path = userData,
+                    Filter = "localconfig.vdf",
+                    IncludeSubdirectories = true,
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName
+                };
 
-            watcher.EnableRaisingEvents = true;
+                FileSystemEventHandler handler = (s, e) => HandleFile(e.FullPath, blackListed);
+                RenamedEventHandler renameHandler = (s, e) => HandleFile(e.FullPath, blackListed);
 
-            // Initial scan (important)
-            foreach (var file in Directory.EnumerateFiles(userData, "localconfig.vdf", SearchOption.AllDirectories))
-            {
-                HandleFile(file, blackListed);
+                watcher.Created += handler;
+                watcher.Changed += handler;
+                watcher.Renamed += renameHandler;
+
+                watcher.EnableRaisingEvents = true;
+
+                // Initial scan (important)
+                foreach (var file in Directory.EnumerateFiles(userData, "localconfig.vdf", SearchOption.AllDirectories))
+                {
+                    HandleFile(file, blackListed);
+                }
+
+                // Keep alive until cancelled
+                return Task.Run(() =>
+                {
+                    try
+                    {
+                        token.WaitHandle.WaitOne();
+                    }
+                    finally
+                    {
+                        watcher.EnableRaisingEvents = false;
+                        watcher.Dispose();
+                    }
+                }, token);
             }
-
-            // Keep alive until cancelled
-            return Task.Run(() =>
+            catch (Exception ex)
             {
-                try
-                {
-                    token.WaitHandle.WaitOne();
-                }
-                finally
-                {
-                    watcher.EnableRaisingEvents = false;
-                    watcher.Dispose();
-                }
-            }, token);
+                SalsaLogger.Error($"Brick prevention task failed: {ex.Message}, MAKE SURE YOU DO NOT USE THE STEAM LAUNCH OPTIONS");
+                return Task.CompletedTask;
+            }
         }
         private static void HandleFile(string path, string blackListed)
         {
@@ -293,5 +315,100 @@ namespace SalsaNOW
                 }
             });
         }
+
+        public static void EnvironmentSetup()
+        {
+            try
+            {
+                SalsaLogger.Info("Setting up environment variables...");
+
+                string dotnetRoot = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Microsoft",
+                    "dotnet");
+
+                string powershellRoot = @"I:\Apps\SalsaNOW\SilentApps\PowerShell";
+
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey("Environment"))
+                {
+                    if (key == null)
+                    {
+                        SalsaLogger.Error("Could not open HKCU\\Environment.");
+                        return;
+                    }
+
+                    key.SetValue("DOTNET_ROOT", dotnetRoot, RegistryValueKind.String);
+                    key.SetValue("POWERSHELL_ROOT", powershellRoot, RegistryValueKind.String);
+
+                    string path = key.GetValue("Path", "").ToString();
+                    path = AddPathIfMissing(path, dotnetRoot);
+                    path = AddPathIfMissing(path, powershellRoot);
+
+                    key.SetValue("Path", path, RegistryValueKind.ExpandString);
+                    key.Flush();
+                }
+
+                SalsaLogger.Info("Registry updated.");
+
+                Environment.SetEnvironmentVariable("DOTNET_ROOT", dotnetRoot);
+                Environment.SetEnvironmentVariable("POWERSHELL_ROOT", powershellRoot);
+
+                string currentPath = Environment.GetEnvironmentVariable("PATH") ?? "";
+                currentPath = AddPathIfMissing(currentPath, dotnetRoot);
+                currentPath = AddPathIfMissing(currentPath, powershellRoot);
+
+                Environment.SetEnvironmentVariable("PATH", currentPath);
+
+                SalsaLogger.Info("Current process environment updated.");
+
+                IntPtr result;
+                NativeMethods.SendMessageTimeout(
+                    (IntPtr)NativeMethods.HWND_BROADCAST,
+                    NativeMethods.WM_SETTINGCHANGE,
+                    IntPtr.Zero,
+                    "Environment",
+                    NativeMethods.SMTO_ABORTIFHUNG,
+                    5000,
+                    out result);
+
+                SalsaLogger.Info("Environment change broadcast sent.");
+
+                using (RegistryKey verify = Registry.CurrentUser.OpenSubKey("Environment"))
+                {
+                    SalsaLogger.Info("Verification:");
+                    SalsaLogger.Info("DOTNET_ROOT = " + verify.GetValue("DOTNET_ROOT", ""));
+                    SalsaLogger.Info("POWERSHELL_ROOT = " + verify.GetValue("POWERSHELL_ROOT", ""));
+                }
+
+                SalsaLogger.Info("Environment setup complete.");
+            }
+            catch (Exception ex)
+            {
+                SalsaLogger.Error("Environment setup failed: " + ex.Message);
+                SalsaLogger.Error(ex.StackTrace ?? "");
+            }
+        }
+
+        private static string AddPathIfMissing(string currentPath, string directory)
+        {
+            if (string.IsNullOrWhiteSpace(currentPath))
+                return directory;
+
+            if (ContainsPath(currentPath, directory))
+                return currentPath;
+
+            return currentPath.TrimEnd(';') + ";" + directory;
+        }
+
+        private static bool ContainsPath(string path, string directory)
+        {
+            return path
+                .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Any(p => string.Equals(
+                    p.TrimEnd('\\'),
+                    directory.TrimEnd('\\'),
+                    StringComparison.OrdinalIgnoreCase));
+        }
+
     }
 }

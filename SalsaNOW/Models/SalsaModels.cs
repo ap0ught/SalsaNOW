@@ -21,6 +21,7 @@ namespace SalsaNOW
         public string exeName { get; set; }
         public string run { get; set; }
         public string url { get; set; }
+        public string version { get; set; } = "1.0.0";
     }
 
     public class SilentApps
@@ -31,6 +32,7 @@ namespace SalsaNOW
         public string archive { get; set; }
         public string run { get; set; }
         public string url { get; set; }
+        public string version { get; set; } = "1.0.0";
     }
 
     public class DesktopInfo
@@ -47,5 +49,23 @@ namespace SalsaNOW
     {
         public string urlbase { get; set; }
         public string copyright { get; set; }
+    }
+
+    public class RegistryBackupConfig
+    {
+        public int BackupIntervalSeconds { get; set; } = 5;
+        public List<RegistryEntry> RegistryKeys { get; set; } = new List<RegistryEntry>();
+    }
+
+    public class RegistryEntry
+    {
+        public string Key { get; set; }
+        public string File { get; set; }
+    }
+
+    public class RegistryFile
+    {
+        public string File { get; set; }
+        public string Url { get; set; }
     }
 }
