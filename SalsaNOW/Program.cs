@@ -100,6 +100,7 @@ namespace SalsaNOW
             _ = DotNetInstaller.StartDotNetInstallAsync(cts.Token);
             _ = Task.Run(() =>
             {
+                if (SalsaSettings.SkipNvidiaPowerPolicy) return;
                 try { NvidiaManager.ApplyPowerManagementPolicy(); }
                 catch (Exception ex) { SalsaLogger.Error("NVIDIA power management policy failed: " + ex.Message); }
             });
