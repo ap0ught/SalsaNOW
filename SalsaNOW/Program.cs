@@ -98,7 +98,11 @@ namespace SalsaNOW
             _ = BackgroundTasks.StartEacWatcherAsync(cts.Token);
             _ = BackgroundTasks.StartBrickPreventionAsync(cts.Token);
             _ = DotNetInstaller.StartDotNetInstallAsync(cts.Token);
-            _ = Task.Run(() => NvidiaManager.EnableRTX());
+            _ = Task.Run(() =>
+            {
+                try { NvidiaManager.ApplyPowerManagementPolicy(); }
+                catch (Exception ex) { SalsaLogger.Error("NVIDIA power management policy failed: " + ex.Message); }
+            });
 
             await Task.WhenAll(
                 SteamManager.ShutdownServerAsync(globalDirectory),
