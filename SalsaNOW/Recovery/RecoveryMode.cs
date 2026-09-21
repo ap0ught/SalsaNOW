@@ -125,7 +125,16 @@ namespace SalsaNOW
                 return;
             }
 
-            Directory.Delete(globalDirectory, true);
+            try
+            {
+                Directory.Delete(globalDirectory, true);
+            }
+            catch (Exception ex)
+            {
+                SalsaLogger.Error("Factory reset failed: " + ex.Message);
+                Thread.Sleep(3000);
+                return;
+            }
 
             Console.Clear();
 
@@ -137,7 +146,7 @@ namespace SalsaNOW
         {
             Console.WriteLine("Restore shortcuts selected.");
 
-            const string jsonUrl = "https://salsanowfiles.work/jsons/apps.json";
+            const string jsonUrl = "https://salsanowfiles.work/jsons/appsV2.json";
 
             try
             {
