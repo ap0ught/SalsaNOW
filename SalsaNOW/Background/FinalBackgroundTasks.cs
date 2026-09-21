@@ -14,8 +14,9 @@ namespace SalsaNOW
     {
         public static async Task OpenShellStartup(string globalDirectory)
         {
-            await CloseStartHookWindowAsync();
-            await Task.Delay(3000);
+            // Poll for the GFN StartHook window while the rest of finalization runs so a
+            // missing window cannot stall every normal startup.
+            Task closeHookTask = CloseStartHookWindowAsync();
 
             try
             {
@@ -25,6 +26,7 @@ namespace SalsaNOW
                 CreateSteamDesktopShortcut(globalDirectory);
                 PinOpenShellShortcuts();
                 ResetExplorerPlusPlus();
+                await WaitForTaskBounded(closeHookTask, TimeSpan.FromSeconds(3));
                 StartOpenShell(globalDirectory);
                 ShowFirstRunNotice(globalDirectory);
             }
@@ -36,7 +38,7 @@ namespace SalsaNOW
 
         private static async Task CloseStartHookWindowAsync()
         {
-            DateTime deadline = DateTime.UtcNow.AddSeconds(30);
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
 
             while (DateTime.UtcNow < deadline)
             {
@@ -55,6 +57,12 @@ namespace SalsaNOW
             }
 
             SalsaLogger.Warn("StartHookWindow not found.");
+        }
+
+        private static async Task WaitForTaskBounded(Task task, TimeSpan timeout)
+        {
+            try { await Task.WhenAny(task, Task.Delay(timeout)); }
+            catch { }
         }
 
         private static void RemoveDxCache(string globalDirectory)
