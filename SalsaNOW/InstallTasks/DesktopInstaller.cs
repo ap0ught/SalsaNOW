@@ -120,21 +120,45 @@ namespace SalsaNOW
                     // Perform installation/update
                     if (needsInstall)
                     {
-                        SafeDeleteDirectory(appDir);
-                        Directory.CreateDirectory(appDir);
-
                         string zipFile = Path.Combine(globalDirectory, $"{desktop.name}_temp.zip");
-                        using (var wc = new WebClient())
+                        string stagingDir = appDir + ".staging";
+                        bool replaced = false;
+
+                        try
                         {
-                            wc.Headers.Add("Cache-Control", "no-cache");
-                            await wc.DownloadFileTaskAsync(new Uri(desktop.url), zipFile);
+                            if (Directory.Exists(stagingDir) && !SafeDeleteDirectory(stagingDir))
+                                throw new IOException("Failed to clear staging directory: " + stagingDir);
+
+                            using (var wc = new WebClient())
+                            {
+                                wc.Headers.Add("Cache-Control", "no-cache");
+                                await wc.DownloadFileTaskAsync(new Uri(desktop.url), zipFile);
+                            }
+
+                            if (!File.Exists(zipFile) || new FileInfo(zipFile).Length == 0)
+                                throw new IOException("Downloaded archive for " + desktop.name + " is empty or missing.");
+
+                            Directory.CreateDirectory(stagingDir);
+                            try { ZipFile.ExtractToDirectory(zipFile, stagingDir); }
+                            catch (Exception ex) { throw new IOException("Failed to extract " + zipFile + ": " + ex.Message, ex); }
+
+                            // The previous installation is left untouched until the replacement has been validated.
+                            if (!string.IsNullOrEmpty(desktop.exeName) &&
+                                !File.Exists(Path.Combine(stagingDir, desktop.exeName)))
+                                throw new InvalidOperationException("Extracted archive for " + desktop.name + " is missing executable " + desktop.exeName + ".");
+
+                            if (!SafeDeleteDirectory(appDir))
+                                throw new IOException("Failed to remove existing installation of " + desktop.name + " at " + appDir + ".");
+
+                            Directory.Move(stagingDir, appDir);
+                            File.WriteAllText(versionMarkerFile, remoteFileName);
+                            replaced = true;
                         }
-
-                        ZipFile.ExtractToDirectory(zipFile, appDir);
-                        if (File.Exists(zipFile)) File.Delete(zipFile);
-
-                        // Save the new version marker
-                        File.WriteAllText(versionMarkerFile, remoteFileName);
+                        finally
+                        {
+                            if (File.Exists(zipFile)) { try { File.Delete(zipFile); } catch { } }
+                            if (!replaced && Directory.Exists(stagingDir)) SafeDeleteDirectory(stagingDir);
+                        }
                     }
 
                     // Universal Launch Logic
@@ -161,22 +185,25 @@ namespace SalsaNOW
             catch (Exception ex) { SalsaLogger.Error(ex.ToString()); }
         }
 
-        private static void SafeDeleteDirectory(string path, int retries = 3)
+        private static bool SafeDeleteDirectory(string path, int retries = 3)
         {
-            if (!Directory.Exists(path)) return;
+            if (!Directory.Exists(path)) return true;
 
             for (int i = 0; i < retries; i++)
             {
                 try
                 {
                     Directory.Delete(path, true);
-                    return;
+                    return true;
                 }
                 catch
                 {
                     System.Threading.Thread.Sleep(1000);
                 }
             }
+
+            SalsaLogger.Error("Failed to delete directory after " + retries + " attempts: " + path);
+            return false;
         }
 
         // Fetches and applies the UHD Bing Photo of the Day
