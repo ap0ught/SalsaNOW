@@ -85,13 +85,13 @@ namespace SalsaNOW
             // Load configuration once to share settings across modules
             SalsaSettings.Load(globalDirectory);
 
-            _ = Task.Run(() => BackgroundTasks.EnvironmentSetup());
+            Console.WriteLine("[startup] Phase 1: preparing environment, registry and game saves...");
+            await Task.Run(() => BackgroundTasks.EnvironmentSetup());
+            await AutoPersist.BackupDesktopRegistry(cts.Token, globalDirectory);
+            await AutoPersist.ApplyCustomRegistryFiles(globalDirectory);
+            await AutoPersist.SetupGameSavesAsync(globalDirectory);
 
-            // Apply registry changes and backup desktop registry
-            _ = AutoPersist.BackupDesktopRegistry(cts.Token, globalDirectory);
-            _ = AutoPersist.ApplyCustomRegistryFiles(globalDirectory);
-            _ = AutoPersist.SetupGameSavesAsync(globalDirectory);
-
+            Console.WriteLine("[startup] Phase 1: launching background services...");
             // Fire and forget non-blocking background services
             _ = BackgroundTasks.StartShortcutsSavingAsync(globalDirectory, cts.Token);
             _ = BackgroundTasks.StartTerminateGFNExplorerShellAsync(cts.Token);
@@ -105,6 +105,7 @@ namespace SalsaNOW
                 catch (Exception ex) { SalsaLogger.Error("NVIDIA power management policy failed: " + ex.Message); }
             });
 
+            Console.WriteLine("[startup] Phase 2: installing apps and services...");
             await Task.WhenAll(
                 SteamManager.ShutdownServerAsync(globalDirectory),
                 DesktopInstaller.DesktopInstallAsync(globalDirectory),
@@ -112,6 +113,7 @@ namespace SalsaNOW
                 AppInstaller.AppsInstallSilentAsync(globalDirectory)
             );
 
+            Console.WriteLine("[startup] Phase 3: finalizing...");
             NativeMethods.ShowWindow(NativeMethods.GetConsoleWindow(), NativeMethods.SW_HIDE);
 
             await FinalBackgroundTasks.OpenShellStartup(globalDirectory);
