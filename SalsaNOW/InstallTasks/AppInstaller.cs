@@ -15,6 +15,8 @@ namespace SalsaNOW
     internal static class AppInstaller
     {
         // Parallel installation of user-defined apps from remote and local JSON sources
+        private const string OwnedMarker = ".salsanow";
+
         public static async Task AppsInstallAsync(string globalDirectory, string customAppsJsonPath)
         {
             const string jsonUrl = "https://salsanowfiles.work/jsons/appsV2.json";
@@ -163,7 +165,28 @@ namespace SalsaNOW
 
                 foreach (var dir in Directory.GetDirectories(silentAppsPath))
                 {
-                    if (!allowedFolders.Contains(Path.GetFileName(dir))) try { Directory.Delete(dir, true); } catch { }
+                    string dirName = Path.GetFileName(dir);
+
+                    // Interrupted installs leave .staging folders that are always tool-owned.
+                    if (dirName.EndsWith(".staging", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { Directory.Delete(dir, true); } catch { }
+                        continue;
+                    }
+
+                    bool owned = File.Exists(Path.Combine(dir, OwnedMarker));
+
+                    if (owned)
+                    {
+                        // Managed folder no longer listed in the JSON definition.
+                        if (!allowedFolders.Contains(dirName)) try { Directory.Delete(dir, true); } catch { }
+                        continue;
+                    }
+
+                    if (allowedFolders.Contains(dirName))
+                        WriteOwnedMarker(dir);
+                    else
+                        SalsaLogger.Info("Preserving user-owned folder in SilentApps: " + dirName);
                 }
                 foreach (var file in Directory.GetFiles(silentAppsPath))
                 {
@@ -239,6 +262,7 @@ namespace SalsaNOW
 
                                 Directory.Move(stagingDir, appFolder);
                                 WriteVersionMarker(versionMarkerFile, versionKey);
+                                WriteOwnedMarker(appFolder);
                                 replaced = true;
                             }
                             finally
@@ -376,6 +400,20 @@ namespace SalsaNOW
                 System.IO.File.WriteAllText(versionMarkerFile, remoteFileName);
             }
             catch (Exception ex) { SalsaLogger.Error($"Failed to write version marker: {ex.Message}"); }
+        }
+
+        private static void WriteOwnedMarker(string folder)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+                    return;
+
+                string markerPath = Path.Combine(folder, OwnedMarker);
+                if (!File.Exists(markerPath))
+                    File.WriteAllText(markerPath, string.Empty);
+            }
+            catch (Exception ex) { SalsaLogger.Error($"Failed to write ownership marker: {ex.Message}"); }
         }
 
         private static bool LooksLikeExecutable(string path)
