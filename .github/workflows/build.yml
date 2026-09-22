@@ -1,0 +1,27 @@
+name: build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore SalsaNOW.sln
+
+      - name: Build
+        run: msbuild SalsaNOW.sln /p:Configuration=Release /p:Platform="Any CPU" /m /v:minimal
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SalsaNOW
+          path: SalsaNOW/bin/Release
