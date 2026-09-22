@@ -7,6 +7,7 @@ namespace SalsaNOW
     internal static class SalsaSettings
     {
         public static bool SkipSeelenUiExecution { get; private set; }
+        public static bool SkipNvidiaPowerPolicy { get; private set; }
         public static bool BingWallpaperEnabled { get; private set; }
         public static bool SteamSilentLaunch { get; private set; }
         public static void Load(string globalDirectory)
@@ -32,6 +33,8 @@ namespace SalsaNOW
             // Ensure settings exist (default = 0)
             EnsureLine("BingPhotoOfTheDayWallpaper");
             EnsureLine("SteamSilentLaunch");
+            EnsureLine("SkipSeelenUiExecution");
+            EnsureLine("SkipNvidiaPowerPolicy");
 
             if (changed)
             {
@@ -39,7 +42,8 @@ namespace SalsaNOW
             }
 
             // Now parse values (your original logic, unchanged style)
-            SkipSeelenUiExecution = lines.Any(l => l.Contains("SkipSeelenUiExecution = \"0\""));
+            SkipSeelenUiExecution = lines.Any(l => l.Contains("SkipSeelenUiExecution = \"1\""));
+            SkipNvidiaPowerPolicy = lines.Any(l => l.Contains("SkipNvidiaPowerPolicy = \"1\""));
             BingWallpaperEnabled = lines.Any(l => l.Contains("BingPhotoOfTheDayWallpaper = \"1\""));
             SteamSilentLaunch = lines.Any(l => l.Contains("SteamSilentLaunch = \"1\""));
         }

@@ -55,7 +55,20 @@ namespace SalsaNOW
                         if (isExe)
                         {
                             SalsaLogger.Info("Downloading " + app.name);
-                            await webClient.DownloadFileTaskAsync(new Uri(app.url), appExePath);
+                            string tmpExe = appExePath + ".tmp";
+                            try
+                            {
+                                await webClient.DownloadFileTaskAsync(new Uri(app.url), tmpExe);
+                                if (!LooksLikeExecutable(tmpExe))
+                                    throw new InvalidOperationException("Downloaded file for " + app.name + " is not a valid executable.");
+
+                                ReplaceFileAtomic(tmpExe, appExePath);
+                            }
+                            finally
+                            {
+                                if (File.Exists(tmpExe)) { try { File.Delete(tmpExe); } catch { } }
+                            }
+
                             if (ShouldCreateDesktopShortcut(globalDirectory, desktopPath))
                                 CreateShortcut(app.name, desktopPath, appExePath, globalDirectory);
                             if (app.run == "true") Process.Start(appExePath);
@@ -77,15 +90,40 @@ namespace SalsaNOW
                             else
                                 SalsaLogger.Info("Installing " + app.name);
 
-                            if (alreadyExists)
-                                SafeDeleteDirectory(appDir);
-
                             string zipPath = $"{appDir}.zip";
-                            await webClient.DownloadFileTaskAsync(new Uri(app.url), zipPath);
-                            ZipFile.ExtractToDirectory(zipPath, appDir);
-                            System.IO.File.Delete(zipPath);
+                            string stagingDir = appDir + ".staging";
+                            bool replaced = false;
 
-                            WriteVersionMarker(versionMarkerFile, versionKey);
+                            try
+                            {
+                                if (Directory.Exists(stagingDir) && !SafeDeleteDirectory(stagingDir))
+                                    throw new IOException("Failed to clear staging directory: " + stagingDir);
+
+                                await webClient.DownloadFileTaskAsync(new Uri(app.url), zipPath);
+                                if (!File.Exists(zipPath) || new FileInfo(zipPath).Length == 0)
+                                    throw new IOException("Downloaded archive for " + app.name + " is empty or missing.");
+
+                                Directory.CreateDirectory(stagingDir);
+                                try { ZipFile.ExtractToDirectory(zipPath, stagingDir); }
+                                catch (Exception ex) { throw new IOException("Failed to extract " + zipPath + ": " + ex.Message, ex); }
+
+                                // The previous installation is left untouched until the replacement has been validated.
+                                if (!File.Exists(Path.Combine(stagingDir, app.exeName)))
+                                    throw new InvalidOperationException("Extracted archive for " + app.name + " is missing executable " + app.exeName + ".");
+
+                                if (alreadyExists && !SafeDeleteDirectory(appDir))
+                                    throw new IOException("Failed to remove existing installation of " + app.name + " at " + appDir + ".");
+
+                                Directory.Move(stagingDir, appDir);
+                                WriteVersionMarker(versionMarkerFile, versionKey);
+                                replaced = true;
+                            }
+                            finally
+                            {
+                                if (File.Exists(zipPath)) { try { File.Delete(zipPath); } catch { } }
+                                if (!replaced && Directory.Exists(stagingDir)) SafeDeleteDirectory(stagingDir);
+                            }
+
                             if (ShouldCreateDesktopShortcut(globalDirectory, desktopPath))
                                 CreateShortcut(app.name, desktopPath, appZipExe, Path.GetDirectoryName(appZipExe));
                             if (app.run == "true") Process.Start(appZipExe);
@@ -175,22 +213,58 @@ namespace SalsaNOW
 
                         if (isArchive)
                         {
-                            if (isOpenShell || hasNewerVersion)
-                                SafeDeleteDirectory(appFolder);
-
                             string zip = $"{appFolder}.zip";
-                            if (!Directory.Exists(appFolder)) Directory.CreateDirectory(appFolder);
+                            string stagingDir = appFolder + ".staging";
+                            bool replaced = false;
 
-                            await webClient.DownloadFileTaskAsync(new Uri(app.url), zip);
-                            ZipFile.ExtractToDirectory(zip, appFolder);
-                            System.IO.File.Delete(zip);
-                            WriteVersionMarker(versionMarkerFile, versionKey);
+                            try
+                            {
+                                if (Directory.Exists(stagingDir) && !SafeDeleteDirectory(stagingDir))
+                                    throw new IOException("Failed to clear staging directory: " + stagingDir);
+
+                                await webClient.DownloadFileTaskAsync(new Uri(app.url), zip);
+                                if (!File.Exists(zip) || new FileInfo(zip).Length == 0)
+                                    throw new IOException("Downloaded archive for " + app.name + " is empty or missing.");
+
+                                Directory.CreateDirectory(stagingDir);
+                                try { ZipFile.ExtractToDirectory(zip, stagingDir); }
+                                catch (Exception ex) { throw new IOException("Failed to extract " + zip + ": " + ex.Message, ex); }
+
+                                // The previous installation is left untouched until the replacement has been validated.
+                                if (!File.Exists(Path.Combine(stagingDir, app.fileName + "." + app.fileExtension)))
+                                    throw new InvalidOperationException("Extracted archive for " + app.name + " is missing executable " + app.fileName + "." + app.fileExtension + ".");
+
+                                if (Directory.Exists(appFolder) && !SafeDeleteDirectory(appFolder))
+                                    throw new IOException("Failed to remove existing installation of " + app.name + " at " + appFolder + ".");
+
+                                Directory.Move(stagingDir, appFolder);
+                                WriteVersionMarker(versionMarkerFile, versionKey);
+                                replaced = true;
+                            }
+                            finally
+                            {
+                                if (File.Exists(zip)) { try { File.Delete(zip); } catch { } }
+                                if (!replaced && Directory.Exists(stagingDir)) SafeDeleteDirectory(stagingDir);
+                            }
 
                             if (app.run == "true") Process.Start(appZipPath);
                         }
                         else
                         {
-                            await webClient.DownloadFileTaskAsync(new Uri(app.url), appPath);
+                            string tmpPath = appPath + ".tmp";
+                            try
+                            {
+                                await webClient.DownloadFileTaskAsync(new Uri(app.url), tmpPath);
+                                if (app.fileExtension == "exe" && !LooksLikeExecutable(tmpPath))
+                                    throw new InvalidOperationException("Downloaded file for " + app.name + " is not a valid executable.");
+
+                                ReplaceFileAtomic(tmpPath, appPath);
+                            }
+                            finally
+                            {
+                                if (File.Exists(tmpPath)) { try { File.Delete(tmpPath); } catch { } }
+                            }
+
                             WriteVersionMarker(versionMarkerFile, versionKey);
 
                             if (app.run == "true")
@@ -304,22 +378,55 @@ namespace SalsaNOW
             catch (Exception ex) { SalsaLogger.Error($"Failed to write version marker: {ex.Message}"); }
         }
 
-        private static void SafeDeleteDirectory(string path, int retries = 3)
+        private static bool LooksLikeExecutable(string path)
         {
-            if (!Directory.Exists(path)) return;
+            try
+            {
+                if (!File.Exists(path) || new FileInfo(path).Length < 2)
+                    return false;
+
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+                {
+                    return fs.ReadByte() == 0x4D && fs.ReadByte() == 0x5A;
+                }
+            }
+            catch { return false; }
+        }
+
+        private static void ReplaceFileAtomic(string source, string destination)
+        {
+            if (File.Exists(destination))
+            {
+                // Atomic swap on NTFS with a rollback copy retained until the replacement has succeeded.
+                string backup = destination + ".bak";
+                File.Replace(source, destination, backup);
+                try { File.Delete(backup); } catch { }
+            }
+            else
+            {
+                File.Move(source, destination);
+            }
+        }
+
+        private static bool SafeDeleteDirectory(string path, int retries = 3)
+        {
+            if (!Directory.Exists(path)) return true;
 
             for (int i = 0; i < retries; i++)
             {
                 try
                 {
                     Directory.Delete(path, true);
-                    return;
+                    return true;
                 }
                 catch
                 {
                     System.Threading.Thread.Sleep(1000);
                 }
             }
+
+            SalsaLogger.Error("Failed to delete directory after " + retries + " attempts: " + path);
+            return false;
         }
 
         private static bool ShouldCreateDesktopShortcut(string globalDirectory, string desktopPath)

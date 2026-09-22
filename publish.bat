@@ -48,7 +48,7 @@ if not defined MSBUILD (
 if exist "%OUT%" rmdir /s /q "%OUT%"
 mkdir "%OUT%"
 
-echo Publishing SalsaNOW (Release, x64, single-file)...
+echo Building SalsaNOW (Release, AnyCPU)...
 "%MSBUILD%" "%PROJECT%" ^
   /t:Rebuild ^
   /p:Configuration=Release ^
@@ -56,12 +56,18 @@ echo Publishing SalsaNOW (Release, x64, single-file)...
   /v:minimal
 
 if errorlevel 1 (
-  echo Publish failed.
+  echo Build failed.
   exit /b 1
 )
 
 if not exist "%EXE%" (
   echo Build finished but SalsaNOW.exe was not found:
+  echo   %EXE%
+  exit /b 1
+)
+
+for %%A in ("%EXE%") do if %%~zA LEQ 0 (
+  echo Build produced an empty SalsaNOW.exe:
   echo   %EXE%
   exit /b 1
 )

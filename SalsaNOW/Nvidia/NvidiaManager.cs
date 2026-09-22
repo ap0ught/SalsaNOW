@@ -16,7 +16,6 @@ namespace SalsaNOW
         private const uint ID_NvAPI_DRS_DestroySession = 0xDAD9CFF8;
         private const uint ID_NvAPI_DRS_LoadSettings = 0x375DBD6B;
         private const uint ID_NvAPI_DRS_SaveSettings = 0xFCBC7E14;
-        private const uint ID_NvAPI_DRS_RestoreAllDefaults = 0x5927B094;
         private const uint ID_NvAPI_DRS_GetBaseProfile = 0xDA8466A0;
         private const uint ID_NvAPI_DRS_SetSetting = 0x577DD202;
 
@@ -49,8 +48,6 @@ namespace SalsaNOW
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int Del_NvAPI_DRS_SaveSettings(IntPtr hSession);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate int Del_NvAPI_DRS_RestoreAllDefaults(IntPtr hSession);
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int Del_NvAPI_DRS_GetBaseProfile(IntPtr hSession, out IntPtr hProfile);
         // pSetting is IntPtr because we marshal the NVDRS_SETTING struct manually
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -78,7 +75,7 @@ namespace SalsaNOW
             return p;
         }
 
-        public static void EnableRTX()
+        public static void ApplyPowerManagementPolicy()
         {
             var initialize = GetDelegate<Del_NvAPI_Initialize>(ID_NvAPI_Initialize);
             int status = initialize();
@@ -98,13 +95,10 @@ namespace SalsaNOW
                 if (status != NVAPI_OK)
                     throw new InvalidOperationException($"NvAPI_DRS_LoadSettings failed with status {status}.");
 
-                var restoreDefaults = GetDelegate<Del_NvAPI_DRS_RestoreAllDefaults>(ID_NvAPI_DRS_RestoreAllDefaults);
-                status = restoreDefaults(hSession);
-                if (status != NVAPI_OK)
-                    throw new InvalidOperationException($"NvAPI_DRS_RestoreAllDefaults failed with status {status}.");
-
-                // setting the Power Management Mode to Prefer maximum performance, 
-                // very important that this is applied on the base global profile so it covers every app/game launched
+                // setting the Power Management Mode to Prefer maximum performance,
+                // applied on the base global profile so it covers every app/game launched
+                // NOTE: we deliberately do NOT restore all driver defaults first, so user and
+                // environment-provided NVIDIA Control Panel settings are left untouched.
                 var getBaseProfile = GetDelegate<Del_NvAPI_DRS_GetBaseProfile>(ID_NvAPI_DRS_GetBaseProfile);
                 IntPtr hProfile;
                 status = getBaseProfile(hSession, out hProfile);
