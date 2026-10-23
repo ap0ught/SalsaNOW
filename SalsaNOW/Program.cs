@@ -22,7 +22,7 @@ namespace SalsaNOW
             // WE LEAVE THIS MANDATORY HERE DON'T MOVE OR DELETE.
             SteamDetach.RemoveSteamEnvironments();
 
-            Console.Title = "SalsaNOW V1.6.8.1-hotfix1 - by dpadGuy";
+            Console.Title = "SalsaNOW V1.6.9.1-hotfix1 - by dpadGuy";
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -32,7 +32,7 @@ namespace SalsaNOW
                 }
             }
 
-            Console.WriteLine("SalsaNOW V1.6.8.1-hotfix1");
+            Console.WriteLine("SalsaNOW V1.6.9.1-hotfix1");
             Console.WriteLine("IF YOU HAVE PAID FOR SALSANOW ACCESS THEN IT MEANS YOU GOT SCAMMED AND SHOULD DEMAND YOUR MONEY BACK IMMEDIATELY.");
             Console.WriteLine("");
 
@@ -83,40 +83,32 @@ namespace SalsaNOW
             await Startup();
 
             // Load configuration once to share settings across modules
-            SalsaSettings.Load(globalDirectory);
+            SalsaSettings.Load();
 
-            Console.WriteLine("[startup] Phase 1: preparing environment, registry and game saves...");
-            await Task.Run(() => BackgroundTasks.EnvironmentSetup());
-            await AutoPersist.BackupDesktopRegistry(cts.Token, globalDirectory);
-            await AutoPersist.ApplyCustomRegistryFiles(globalDirectory);
-            await AutoPersist.SetupGameSavesAsync(globalDirectory);
+            _ = Task.Run(() => BackgroundTasks.EnvironmentSetup());
 
-            Console.WriteLine("[startup] Phase 1: launching background services...");
+            // Apply registry changes and backup desktop registry
+            _ = AutoPersist.BackupDesktopRegistry(cts.Token, globalDirectory);
+            _ = AutoPersist.ApplyCustomRegistryFiles(globalDirectory);
+            _ = AutoPersist.SetupGameSavesAsync(globalDirectory);
+
             // Fire and forget non-blocking background services
             _ = BackgroundTasks.StartShortcutsSavingAsync(globalDirectory, cts.Token);
             _ = BackgroundTasks.StartTerminateGFNExplorerShellAsync(cts.Token);
             _ = BackgroundTasks.StartEacWatcherAsync(cts.Token);
             _ = BackgroundTasks.StartBrickPreventionAsync(cts.Token);
             _ = DotNetInstaller.StartDotNetInstallAsync(cts.Token);
-            _ = Task.Run(() =>
-            {
-                if (SalsaSettings.SkipNvidiaPowerPolicy) return;
-                try { NvidiaManager.ApplyPowerManagementPolicy(); }
-                catch (Exception ex) { SalsaLogger.Error("NVIDIA power management policy failed: " + ex.Message); }
-            });
+            _ = Task.Run(() => NvidiaManager.EnableRTX());
 
-            Console.WriteLine("[startup] Phase 2: installing apps and services...");
-            await Task.WhenAll(
-                SteamManager.ShutdownServerAsync(globalDirectory),
+            Task installs = Task.WhenAll(
                 DesktopInstaller.DesktopInstallAsync(globalDirectory),
                 AppInstaller.AppsInstallAsync(globalDirectory, customAppsJsonPath),
-                AppInstaller.AppsInstallSilentAsync(globalDirectory)
+                AppInstaller.AppsInstallSilentAsync(globalDirectory),
+                SteamManager.ShutdownServerAsync(globalDirectory)
             );
 
-            Console.WriteLine("[startup] Phase 3: finalizing...");
-            NativeMethods.ShowWindow(NativeMethods.GetConsoleWindow(), NativeMethods.SW_HIDE);
-
-            await FinalBackgroundTasks.OpenShellStartup(globalDirectory);
+            await installs;
+            await FinalBackgroundTasks.FinalTasks(globalDirectory, cts.Token);
 
             try { await Task.Delay(Timeout.Infinite, cts.Token); } catch (TaskCanceledException) { }
         }
@@ -134,9 +126,6 @@ namespace SalsaNOW
                     // Initialize Logger here so it knows the global directory path
                     SalsaLogger.Initialize(globalDirectory);
                     SalsaLogger.Info($"Main directory created {globalDirectory}");
-                    
-                    string cfg = Path.Combine(globalDirectory, "SalsaNOWConfig.ini");
-                    if (!System.IO.File.Exists(cfg)) await wc.DownloadFileTaskAsync(new Uri("https://salsanowfiles.work/jsons/SalsaNOWConfig.ini"), cfg);
                 }
             }
             // Upload Crashlogs to paste.rs and show the user a link to forward to the Devs
